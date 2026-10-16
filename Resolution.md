@@ -47,9 +47,11 @@
     margin: 10px 0;
   }
   .img-container img {
+    text-align: center;
+    max-height: 200px; 
     width: auto;
-    height: 320px;
-    border: 0.5px solid #e1e4e8;
+    max-width: 90%;
+    border: 1px solid #e1e4e8;
     border-radius: 4px;
   }
   .caption {
@@ -126,8 +128,6 @@ Comparing the timing curves across working set sizes at identical strides reveal
 ---
 
 <div style="page-break-before: always;"></div>
-
----
 
 ### **Question e) L1 Data-Cache Line Size Estimate**
 
@@ -239,6 +239,10 @@ The first loop performs four stores per iteration for 64 iterations, giving 256 
 
 The workload exhibits both spatial and temporal locality. Consecutive elements of `a`, `b`, and `c` can reuse a fetched cache line. The stride of three integers in `d` skips two words between accesses, reducing this opportunity. The second loop revisits the data written by the first, providing potential temporal reuse if the required lines have survived in the cache.
 
+---
+
+<div style="page-break-before: always;"></div>
+
 ### **Experimental Setup and Interpretation of Parameters:**
 
 * **Simulator:** Ripes, browser version at https://ripes.dk/.
@@ -256,15 +260,7 @@ $$
 
 The fields labelled $2^n$ in the supplied screenshots are **Sets** and **Words per Line**. Their displayed values must be converted from exponents: 5 sets means $2^5=32$ sets, 4 means 16 sets, 0 means one set, and 2 words per line means four words. In these screenshots, **Ways is displayed as an ordinary count**, without the $2^n$ label. Therefore a displayed Ways value of 5 means **five ways**, and a value of 1 means **one way**.
 
-**Address fields and terminology.** A block (or cache line) is the transfer unit; a word is one four-byte item inside it. Following OC5, slides 12 and 30-32, a 32-bit byte address is divided into tag, set index, and block offset. For the selected B9 configuration, the fields are:
-
-| Address field in B9 | Bits | Purpose |
-| :--- | ---: | :--- |
-| Tag | 24 | Distinguishes memory blocks that share a set |
-| Set index | 2 | Selects one of four sets |
-| Block offset | 6 | Selects a byte within a 64-byte line |
-
-The six offset bits comprise four word-offset bits and two byte-offset bits. The four ways are alternative placements **within the indexed set**; there are no separate way-index bits in the address. A hit requires a matching tag in a valid way. Resetting the cache invalidates its lines, ensuring a cold start.
+A cache line is the transfer unit. Ways provide alternative placements within a set; a hit requires a matching tag in a valid line.
 
 The simulator's **Size (bits)** includes metadata in addition to data storage. It must not be substituted for $C$. Hit rate is calculated from the final access counters:
 
@@ -274,24 +270,30 @@ $$
 
 A hit means the accessed block was present; a miss means it was absent. With write-allocate, a store miss brings the corresponding line into the cache. With write-back, writes mark cached lines dirty; replacing a dirty line generates a writeback. Dirty lines still present at program termination are not automatically counted as additional writebacks in the reported statistics.
 
+---
+
+<div style="page-break-before: always;"></div>
+
 ### **Question a) Comparing Three Selected Presets**
 
-**Preset selection and interface limitation.** The three built-in data-cache presets available in the browser version were selected and measured. Their original settings and results are retained below. However, the Ways values populated by the presets labelled two-way and fully associative did not match the geometries implied by their names: the fields showed one way and five ways, respectively. A supplementary run corrected the two-way configuration to **two ways**, preserving its 16 sets and four words per line. The resulting custom preset is labelled **Corrected 2-way** in the new screenshot.
+**Preset selection and interface limitation.** The three built-in data-cache presets available in the browser version were selected and measured. Their original settings and results are retained below. However, the Ways values populated by the presets labelled two-way and fully associative did not match the geometries implied by their names: the fields showed one way and five ways, respectively. A supplementary run corrected the two-way configuration to **two ways**, preserving its 16 sets and four words per line. The manually adjusted configuration is labelled **P3-corrected** below.
 
 The corresponding correction to 32 ways for the fully associative preset could not be applied because the browser's Ways field rejected values above 10. Its original measured configuration is therefore reported transparently as one set with five ways, rather than represented as a 32-line cache. The report distinguishes the three original preset measurements from the additional corrected two-way measurement.
 
 **Identification of the runs**
 
-| Run | Preset or configuration | Source of results |
-| :--- | :--- | :--- |
-| P1 | 32-entry 4-word direct-mapped | `image(6).png` |
-| P2 | 32-entry 4-word fully associative, as automatically instantiated | `image(7).png` |
-| P3-original | 32-entry 4-word 2-way set associative, as automatically instantiated | `image(8).png` |
-| P3-corrected | Corrected 2-way; manual adjustment of Ways from 1 to 2 | `Captura de ecrã 2026-10-16 004431.png` |
+| Run | Preset or configuration |
+| :--- | :--- |
+| P1 | 32-entry 4-word direct-mapped |
+| P2 | 32-entry 4-word fully associative, as automatically instantiated |
+| P3-original | 32-entry 4-word 2-way set associative, as automatically instantiated |
+| P3-corrected | Corrected 2-way; manual adjustment of Ways from 1 to 2 |
+
+<div style="page-break-before: always;"></div>
 
 **Geometry and data capacity**
 
-Only Sets and Words per Line are displayed as powers of two in these screenshots. Ways is a direct count. The table reports actual counts, rather than the exponents entered in the interface.
+The table reports actual counts, rather than the exponents entered in the interface.
 
 | Run | Sets $S$ | Ways $A$ | Words/line $W$ | Total lines $SA$ | Line size | Data capacity |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -320,14 +322,7 @@ $$
 
 P1 is direct-mapped. P2 is fully associative in the sense that it has one set and any fetched line can occupy any of its five ways; its capacity is nevertheless only five lines. P3-original is effectively direct-mapped despite its preset label. P3-corrected is genuinely two-way set-associative and has the advertised 32 total lines. P1 and P3-corrected consequently have equal data capacity and line size.
 
-**Policies**
-
-| Run | Write-hit policy | Write-miss policy | Replacement policy |
-| :--- | :--- | :--- | :--- |
-| P1 | Write-back | Write-allocate | LRU; victim is forced with one way |
-| P2 | Write-back | Write-allocate | LRU |
-| P3-original | Write-back | Write-allocate | LRU; victim is forced with one way |
-| P3-corrected | Write-back | Write-allocate | LRU |
+**Policies:** all four runs use write-back, write-allocate and LRU. With one way, each set has only one possible victim.
 
 **Final statistics**
 
@@ -340,9 +335,7 @@ Each measurement includes both loops from an empty cache, without a warm-up. All
 | P3-original | 28 | 484 | 369 | 512 | 5.46875% | 94.53125% | 2480 bits |
 | P3-corrected | **28** | **484** | **360** | **512** | **5.46875%** | **94.53125%** | **4960 bits** |
 
-For example, $120/(120+392)\times100=23.4375\%$ for P1. P2 gives $320/512\times100=62.5\%$, while both P3 runs give $28/512\times100=5.46875\%$. Ripes displays rounded fractional hit rates, including approximately 0.05469 for the corrected run.
-
-The data portions of the four configurations occupy 4096, 640, 2048, and 4096 bits respectively. Subtracting these from Ripes's total sizes gives metadata overheads of 832, 165, 432, and 864 bits. Thus the corrected two-way run's 4960-bit total is consistent with 512 bytes of data plus metadata; it does not mean a 620-byte data cache.
+<div style="page-break-before: always;"></div>
 
 **Effect of correcting the two-way preset**
 
@@ -373,6 +366,8 @@ For example, the first lines of `a`, `b`, and `c` all map to set 0. During the f
 
 As a consistency check, an independent LRU trace calculation for P3-original and P3-corrected reproduces 14 hits and 242 misses in each loop. In both cases, all `a`, `b`, and `c` accesses miss; the 14 hits per loop come from `d`. This calculation explains the measurements; it is not an additional Ripes run. It shows that the remaining conflicts are sufficient to prevent a hit-rate improvement after the two-way correction.
 
+<div style="page-break-before: always;"></div>
+
 **Comparison at equal data capacity**
 
 P1 and P3-corrected both store 32 lines of 16 bytes, or 512 B. Nevertheless, P1 has **392 misses**, compared with **484** for P3-corrected: the corrected two-way design has 92 more misses, an increase of approximately **23.47%** relative to P1. Its hit rate is lower by **17.96875 percentage points**, and its writeback count is 360 rather than 315.
@@ -387,20 +382,15 @@ With four words per line, each sequential array touches 16 distinct lines and th
 
 Relative to P1, P2 has 200 fewer misses, a reduction of approximately 51.02%, and a hit rate higher by 39.0625 percentage points. This is a comparison of the measured configurations, not a claim about a 32-line fully associative cache, which could not be configured in this browser interface.
 
-**Scope of the conclusions**
+The measured ranking by misses is P2, P1, then the two P3 runs tied. Question (b) separately compares configurations under its data-storage budget.
 
-The measured ranking by misses is P2, P1, then P3-original and P3-corrected tied. The corrected two-way run demonstrates an actual architectural correction and a modest writeback reduction, while also illustrating that greater capacity and associativity need not reduce misses for an unfavourable mapping.
-
-The original three preset results are included to document what the available browser presets produced, and the corrected two-way run is explicitly identified as an additional manual adjustment. The fully associative limitation is retained as a short reproducibility note rather than hidden by relabelling measurements. These runs do not determine the winner for question (b), which requires a separate comparison using its storage budget and power-of-two parameters.
-
+---
 
 <div style="page-break-before: always;"></div>
 
 ### **Question b) Selecting a Configuration Within the 1 KiB Data Budget**
 
 **Experimental design.** Nine distinct data-cache configurations were tested using the unchanged workload and the 32-bit single-cycle processor. The experiment crosses three associativities (one, two, and four ways) with three line sizes (16, 32, and 64 bytes). All configurations use **write-back**, **write-allocate**, and **LRU**, and each uses the full 1024-byte data-storage budget. Instruction-cache settings remain unchanged.
-
-For each configuration, execution and cache contents/statistics were reset before one complete run of both loops. Ripes's fast execution control (F8) was used to run without updating the interface at every instruction. The comparison uses final cache counters, not simulation speed, processor cycles, or the plotted moving average.
 
 The constraint is:
 
@@ -448,10 +438,14 @@ There is **no tie for the minimum**. B6 and B7 tie with each other at 94 misses,
 
 **Selected configuration and final-statistics screenshot**
 
-![Figure 5: B9 configuration and final cache statistics.](B9.png)
+<div class="img-container" style="text-align: center;">
+  <img src="B9.png" alt="Figure 5: B9 configuration and final cache statistics." height="650" style="display: block; margin: 0 auto; border: 1px solid #e1e4e8; border-radius: 4px;">
+  <div class="caption"><em>Figure 5. Supplied final-run screenshot for B9, showing Sets exponent 2 (four sets), Ways 4, Words per Line exponent 4 (sixteen words), LRU/write-back/write-allocate, and final counters of 466 hits, 46 misses, and 23 writebacks. The displayed total size is 8640 bits: 8192 data bits plus 448 metadata bits.</em></div>
+</div>
 
-*Figure 5. Supplied final-run screenshot for B9, showing Sets exponent 2 (four sets), Ways 4, Words per Line exponent 4 (sixteen words), LRU/write-back/write-allocate, and final counters of 466 hits, 46 misses, and 23 writebacks. The displayed total size is 8640 bits: 8192 data bits plus 448 metadata bits.*
+---
 
+<div style="page-break-before: always;"></div>
 
 ### **Question c) Justification and Applicability to Other Programs**
 
@@ -459,7 +453,7 @@ There is **no tie for the minimum**. B6 and B7 tie with each other at 94 misses,
 
 B9 combines a large enough line to exploit nearby accesses with sufficient placement flexibility to retain the four active array-stream lines. Neither a larger line nor a higher associativity alone guarantees this result, because keeping capacity fixed also changes the number of sets and resident lines.
 
-The workload performs sequential four-byte accesses in a, b, and c, while d is accessed every twelve bytes. The first loop writes all four streams; the second loop reads b and d and writes a and c. Reuse can occur both within each pass and between passes, but only when the relevant line survives intervening accesses.
+The access pattern described above permits spatial reuse within each pass and temporal reuse between passes, provided the relevant lines survive intervening accesses.
 
 **Connection to the lecture model.** OC6, slide 5, distinguishes the three sources of cache misses:
 
@@ -478,6 +472,8 @@ $$
 $$
 
 B9 minimises the **measured miss rate among the tested configurations**, as the assignment requires. It does not establish minimum AMAT or CPU time: the experiment supplies no hit-time or miss-penalty measurements, and associativity and line size can affect both (OC6, slide 31). The policies follow OC6, slides 8-9: write-allocate fetches a line on a store miss, and write-back marks modified lines dirty until replacement.
+
+<div style="page-break-before: always;"></div>
 
 **Spatial locality: comparison with B6**
 
@@ -507,6 +503,8 @@ An independent LRU trace calculation reproduces the measured totals for all nine
 | B9: 64-byte lines, four ways | 24 | 22 | 46 | 8 | 15 |
 
 These per-loop values are derived from the supplied assembly and cache model, not read as separate measurements from the screenshots. Both configurations have only first-time line misses in loop 1, so the larger lines are being reused successfully within that pass. In loop 2, previously accessed data has largely been evicted, although a small amount survives. The 48-miss difference between B6 and B9 is therefore consistent with improved spatial reuse across the complete two-loop workload. This comparison changes line size, set count, and line count together, as required to hold data capacity and associativity constant.
+
+<div style="page-break-before: always;"></div>
 
 **Placement conflicts: comparison with B7**
 
